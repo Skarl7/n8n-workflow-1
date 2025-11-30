@@ -1,0 +1,262 @@
+{
+  "name": "Legal Document Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "document-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - Document Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "doc-automation"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "documentType",
+              "value": "={{ $json.body.documentType }}"
+            },
+            {
+              "name": "clientName",
+              "value": "={{ $json.body.clientName }}"
+            },
+            {
+              "name": "clientEmail",
+              "value": "={{ $json.body.clientEmail }}"
+            },
+            {
+              "name": "caseDetails",
+              "value": "={{ $json.body.caseDetails }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Extract Form Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.documentType }}",
+              "operation": "equals",
+              "value2": "contract"
+            }
+          ]
+        }
+      },
+      "name": "Check Document Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-4"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a UK paralegal drafting legal documents. Use formal legal language and UK legal standards.\"},{\"role\":\"user\",\"content\":\"Draft a {{ $json.documentType }} for {{ $json.clientName }}. Case details: {{ $json.caseDetails }}\"}]"
+            }
+          ]
+        }
+      },
+      "name": "Generate Document with AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "documentId": {
+          "__rl": true,
+          "value": "template_id",
+          "mode": "id"
+        },
+        "title": "={{ $json.clientName }} - {{ $json.documentType }}",
+        "options": {}
+      },
+      "name": "Create Google Doc",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "name": "={{ $json.clientName }}_{{ $json.documentType }}.pdf",
+        "parents": {
+          "__rl": true,
+          "value": "folder_id",
+          "mode": "id"
+        }
+      },
+      "name": "Save to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@lexsklegal.co.uk",
+        "toEmail": "={{ $json.clientEmail }}",
+        "subject": "Your {{ $json.documentType }} is ready",
+        "emailFormat": "html",
+        "text": "=Dear {{ $json.clientName }},\n\nYour {{ $json.documentType }} has been prepared and is attached to this email.\n\nBest regards,\nLexsk Legal Limited",
+        "attachments": "={{ $json.documentUrl }}",
+        "options": {}
+      },
+      "name": "Email Document to Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "content": "=Standard template used for {{ $json.documentType }}",
+        "additionalFields": {}
+      },
+      "name": "Use Standard Template",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"success\", \"message\": \"Document generated and sent to {{ $json.clientEmail }}\", \"documentType\": \"{{ $json.documentType }}\" }",
+        "options": {}
+      },
+      "name": "Respond to Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Document Request": {
+      "main": [
+        [
+          {
+            "node": "Extract Form Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Form Data": {
+      "main": [
+        [
+          {
+            "node": "Check Document Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Document Type": {
+      "main": [
+        [
+          {
+            "node": "Generate Document with AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Standard Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Document with AI": {
+      "main": [
+        [
+          {
+            "node": "Create Google Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Doc": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Email Document to Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Document to Client": {
+      "main": [
+        [
+          {
+            "node": "Respond to Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Standard Template": {
+      "main": [
+        [
+          {
+            "node": "Create Google Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "2",
+  "id": "2",
+  "meta": {
+    "instanceId": "n8n-workflow-library"
+  },
+  "tags": []
+}

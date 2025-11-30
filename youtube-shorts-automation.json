@@ -1,0 +1,161 @@
+{
+  "name": "YouTube Shorts Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-4"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\":\"system\",\"content\":\"You are a content creator for YouTube Shorts about legal tips and paralegal services.\"},{\"role\":\"user\",\"content\":\"Generate a script for a 60-second YouTube Short about a legal tip. Include hook, main content, and call to action.\"}]"
+            },
+            {
+              "name": "max_tokens",
+              "value": 500
+            }
+          ]
+        }
+      },
+      "name": "OpenAI - Generate Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst script = response.choices[0].message.content;\n\nreturn {\n  json: {\n    script: script,\n    title: script.split('\\n')[0].substring(0, 100),\n    description: 'Legal tip from Lexsk Legal Limited. Follow for more paralegal advice!',\n    tags: ['legal', 'paralegal', 'legaladvice', 'uklaw']\n  }\n};"
+      },
+      "name": "Process Script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "=Professional legal office background for social media, modern minimalist design, blue and white theme"
+            },
+            {
+              "name": "size",
+              "value": "1024x1792"
+            },
+            {
+              "name": "n",
+              "value": 1
+            }
+          ]
+        }
+      },
+      "name": "Generate Background Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "content": "=📹 New YouTube Short Script Ready!\n\nTitle: {{ $json.title }}\n\nScript:\n{{ $json.script }}\n\nNext: Create video using the generated background and script.",
+        "additionalFields": {}
+      },
+      "name": "Notify - Script Ready",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenAI - Generate Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Generate Script": {
+      "main": [
+        [
+          {
+            "node": "Process Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Script": {
+      "main": [
+        [
+          {
+            "node": "Generate Background Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Background Image": {
+      "main": [
+        [
+          {
+            "node": "Notify - Script Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1",
+  "id": "1",
+  "meta": {
+    "instanceId": "n8n-workflow-library"
+  },
+  "tags": []
+}

@@ -1,0 +1,132 @@
+{
+  "name": "Email Notification System",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "mark",
+        "options": {}
+      },
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{ $json.subject }}", "operation": "contains", "value2": "[URGENT]"}
+          ]
+        }
+      },
+      "name": "Check if Urgent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "Bearer {{ $credentials.slackToken }}"}]},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "channel", "value": "#urgent-legal"},
+            {"name": "text", "value": "=🚨 URGENT EMAIL\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\nSnippet: {{ $json.snippet }}"}
+          ]
+        }
+      },
+      "name": "Send Slack Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "message": "=New legal inquiry from {{ $json.from }}",
+        "toNumber": "+447XXXXXXXXX",
+        "options": {}
+      },
+      "name": "Send SMS to Partner",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "log_spreadsheet_id", "mode": "id"},
+        "sheetName": "Email Log",
+        "columns": "={{ $json.from }},={{ $json.subject }},={{ $now }},Urgent"
+      },
+      "name": "Log Urgent Email",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {"value1": "={{ $json.from }}", "operation": "contains", "value2": "client"}
+          ]
+        }
+      },
+      "name": "Check if Client Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@lexsklegal.co.uk",
+        "toEmail": "={{ $json.from }}",
+        "subject": "Re: {{ $json.subject }}",
+        "emailFormat": "html",
+        "text": "=<p>Thank you for contacting Lexsk Legal Limited.</p><p>We have received your email and will respond within 24 hours.</p><p>For urgent matters, please call us at +44 20 XXXX XXXX.</p><p>Best regards,<br>Lexsk Legal Team</p>"
+      },
+      "name": "Send Auto-Reply",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {"__rl": true, "value": "log_spreadsheet_id", "mode": "id"},
+        "sheetName": "Email Log",
+        "columns": "={{ $json.from }},={{ $json.subject }},={{ $now }},Normal"
+      },
+      "name": "Log Normal Email",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [850, 500]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {"main": [[{"node": "Check if Urgent", "type": "main", "index": 0}]]},
+    "Check if Urgent": {
+      "main": [
+        [{"node": "Send Slack Alert", "type": "main", "index": 0}, {"node": "Send SMS to Partner", "type": "main", "index": 0}],
+        [{"node": "Check if Client Email", "type": "main", "index": 0}]
+      ]
+    },
+    "Send Slack Alert": {"main": [[{"node": "Log Urgent Email", "type": "main", "index": 0}]]},
+    "Send SMS to Partner": {"main": [[{"node": "Log Urgent Email", "type": "main", "index": 0}]]},
+    "Check if Client Email": {
+      "main": [
+        [{"node": "Send Auto-Reply", "type": "main", "index": 0}],
+        [{"node": "Log Normal Email", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "5",
+  "id": "5",
+  "meta": {"instanceId": "n8n-workflow-library"},
+  "tags": []
+}

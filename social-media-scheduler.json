@@ -1,0 +1,98 @@
+{
+  "name": "Social Media Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {"__rl": true, "value": "spreadsheet_id", "mode": "id"},
+        "sheetName": "Content Calendar",
+        "range": "A2:E100"
+      },
+      "name": "Read Content Calendar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "rule": {"interval": [{"field": "hours", "hoursInterval": 2}]}
+      },
+      "name": "Schedule - Every 2 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [50, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "dateTime": [{
+            "value1": "={{ $json.scheduledDate }}",
+            "operation": "equals",
+            "value2": "={{ $now.toFormat('yyyy-MM-dd HH:mm') }}"
+          }]
+        }
+      },
+      "name": "Check If Time to Post",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.postContent }}",
+        "additionalFields": {}
+      },
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "pageId": {"__rl": true, "value": "page_id", "mode": "id"},
+        "message": "={{ $json.postContent }}"
+      },
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "content": "={{ $json.postContent }}",
+        "caption": "Lexsk Legal Limited - Your Paralegal Experts"
+      },
+      "name": "Post to Instagram",
+      "type": "n8n-nodes-base.instagram",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "spreadsheet_id", "mode": "id"},
+        "sheetName": "Content Calendar",
+        "range": "={{ $json.rowNumber }}:{{ $json.rowNumber }}",
+        "values": "={{ $json.postContent }},={{ $json.scheduledDate }},Posted,={{ $now }}"
+      },
+      "name": "Mark as Posted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Schedule - Every 2 Hours": {"main": [[{"node": "Read Content Calendar", "type": "main", "index": 0}]]},
+    "Read Content Calendar": {"main": [[{"node": "Check If Time to Post", "type": "main", "index": 0}]]},
+    "Check If Time to Post": {"main": [[{"node": "Post to Twitter", "type": "main", "index": 0}, {"node": "Post to LinkedIn", "type": "main", "index": 0}, {"node": "Post to Instagram", "type": "main", "index": 0}]]},
+    "Post to Twitter": {"main": [[{"node": "Mark as Posted", "type": "main", "index": 0}]]},
+    "Post to LinkedIn": {"main": [[{"node": "Mark as Posted", "type": "main", "index": 0}]]},
+    "Post to Instagram": {"main": [[{"node": "Mark as Posted", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "4",
+  "id": "4",
+  "meta": {"instanceId": "n8n-workflow-library"},
+  "tags": []
+}

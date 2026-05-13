@@ -1,0 +1,96 @@
+{
+  "name": "Client Intake - Legal Firm Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Lexsk Legal - New Client Intake",
+        "formDescription": "Please complete this form to start your legal service request",
+        "formFields": {
+          "values": [
+            { "fieldLabel": "Full Name", "fieldType": "text" },
+            { "fieldLabel": "Email", "fieldType": "text" },
+            { "fieldLabel": "Phone", "fieldType": "text" },
+            { "fieldLabel": "Service Type", "fieldType": "dropdown", "fieldOptions": "Contract Review|NDA Drafting|Employment Law|Property Law|General Advice" },
+            { "fieldLabel": "Case Details", "fieldType": "textarea" }
+          ]
+        }
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "client-intake-legal-firm"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "=You are a legal intake assistant. Analyze the following client submission and categorise it. Return a JSON object with: intakeSummary (2-sentence summary), urgency (low/medium/high), recommendedNextStep, and autoAssignTo (solicitor name based on service type).\n\nClient: {{$json.name}}\nEmail: {{$json.email}}\nService: {{$json.serviceType}}\nDetails: {{$json.caseDetails}}"
+      },
+      "name": "AI Analysis",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL_ID", "name": "OpenAI API" }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "LEGAL_FIRM_CLIENT_DATABASE",
+        "sheetName": "Clients",
+        "range": ""
+      },
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [650, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "YOUR_GOOGLE_CREDS_ID", "name": "Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.email}}",
+        "subject": "Welcome to Lexsk Legal - Your Case Reference",
+        "emailType": "text",
+        "message": "=Dear {{$json.name}},\n\nThank you for contacting Lexsk Legal. We have received your request for: {{$json.serviceType}}\n\nYour case reference: LEG-{{Date.now().toString().slice(-8)}}\n\nOur team will review your matter and respond within 24 hours.\n\nBest regards,\nLexsk Legal Limited\nwww.lexsk.co.uk"
+      },
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "<?=TELEGRAM_CHAT_ID?>",
+        "text": "=New client intake: {{$json.name}} - {{$json.serviceType}}\nAI Analysis: Urgency: {{$json.urgency}}\nSee case details in CRM."
+      },
+      "name": "Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [850, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "AI Analysis", "type": "main", "index": 0 }]]
+    },
+    "AI Analysis": {
+      "main": [[{ "node": "Save to Google Sheets", "type": "main", "index": 0 }]]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [{ "node": "Send Welcome Email", "type": "main", "index": 0 }],
+        [{ "node": "Telegram Notification", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "owner": "Skarl7",
+    "company": "Lexsk Legal Limited",
+    "website": "https://lexsk.co.uk",
+    "purpose": "Automate client intake for paralegal services with AI-powered analysis and multi-channel notifications"
+  }
+}
